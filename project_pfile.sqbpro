@@ -1,0 +1,625 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="/Users/didriknaess/Documents/23-1/Databaser/db-train-project/trainData.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="3787"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><current_table name="4,13:mainBanestrekning"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="Banestrekning" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="93"/><column index="2" value="90"/><column index="3" value="53"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="SengeBillett" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="50"/><column index="2" value="58"/><column index="3" value="32"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="SQL 1">/* Entity Classes */
+CREATE TABLE Operator (
+	navn TEXT NOT NULL,
+	PRIMARY KEY(navn)
+);
+
+CREATE TABLE Vognoppsett (
+	vognoppsettID INTEGER NOT NULL,
+	PRIMARY KEY(vognoppsettID)
+);
+
+CREATE TABLE Sittevogn (
+	vognID INTEGER NOT NULL,
+	navn TEXT,
+	radStørrelse INTEGER NOT NULL CHECK(radStørrelse &gt; 0),
+    operatorNavn TEXT NOT NULL,
+	PRIMARY KEY(vognID),
+    FOREIGN KEY(operatorNavn) REFERENCES Operator(navn) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Sovevogn (
+	vognID INTEGER NOT NULL,
+	navn TEXT,
+    operatorNavn TEXT NOT NULL,
+	PRIMARY KEY(vognID),
+    FOREIGN KEY(operatorNavn) REFERENCES Operator(navn) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Sete (
+	vognID INTEGER NOT NULL,
+	seteNr INTEGER NOT NULL,
+	radNr INTEGER NOT NULL,
+	PRIMARY KEY(vognID,seteNr),
+    FOREIGN KEY(vognID) REFERENCES SitteVogn(vognID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Soveplass (
+	vognID INTEGER NOT NULL,
+	sengNr INTEGER NOT NULL,
+	PRIMARY KEY(vognID,sengNr),
+    FOREIGN KEY(vognID) REFERENCES Sovevogn(vognID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Sovekupe (
+	vognID INTEGER NOT NULL,
+	kupeNr INTEGER NOT NULL,
+    seng1Nr INTEGER NOT NULL,
+    seng2Nr INTEGER NOT NULL,
+	PRIMARY KEY(vognID,kupeNr),
+    FOREIGN KEY(vognID) REFERENCES Sovevogn(vognID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID, seng1Nr) REFERENCES Soveplass(vognID, sengNr) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID, seng2Nr) REFERENCES Soveplass(vognID, sengNr) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Banestrekning (
+	banestrekningID INTEGER NOT NULL,
+	navn TEXT,
+	elektrisk BINARY NOT NULL, /* enten elektrisk eller diesel */
+	PRIMARY KEY(banestrekningID)
+);
+
+CREATE TABLE Togrute (
+	togruteID	INTEGER NOT NULL,
+    retning BINARY NOT NULL, /* enten med Banestrekning-ens hovedretning eller imot */ 
+    banestrekningID INTEGER NOT NULL,
+	PRIMARY KEY(togruteID),
+    FOREIGN KEY(banestrekningID) REFERENCES Banestrekning(banestrekningID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE RuteForekomst (
+    togruteID INTEGER NOT NULL,
+    dato DATE NOT NULL,
+    PRIMARY KEY(togruteID, dato),
+    FOREIGN KEY(togruteID) REFERENCES Togrute(togruteID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Stasjon (
+    navn TEXT NOT NULL,
+    hoydemeter NUMBER NOT NULL,
+    PRIMARY KEY(navn)
+);
+
+CREATE TABLE Kunde (
+	kundeNr INTEGER NOT NULL,
+	navn TEXT NOT NULL,
+	epost TEXT NOT NULL,
+	tlfNr INTEGER NOT NULL,
+	PRIMARY KEY(kundeNr)
+);
+
+CREATE TABLE KundeOrdre (
+	ordreNr INTEGER NOT NULL,
+	tidspunktKjøpt DATE,
+	kundeNr INTEGER NOT NULL,
+	PRIMARY KEY(ordreNr),
+	FOREIGN KEY(kundeNr) REFERENCES Kunde(kundeNr) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Billett (
+	billettID	INTEGER NOT NULL,
+    startStasjon TEXT NOT NULL, --FK?
+    endeStasjon TEXT NOT NULL, --FK?
+    ordreNr INTEGER,
+    togruteID INTEGER NOT NULL,
+    dato DATE NOT NULL,
+	PRIMARY KEY(billettID),
+    FOREIGN KEY(startStasjon) REFERENCES Stasjon(navn) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(endeStasjon) REFERENCES Stasjon(navn) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(ordreNr) REFERENCES KundeOrdre(ordreNr) ON UPDATE CASCADE,
+    FOREIGN KEY(togruteID, dato) REFERENCES RuteForekomst(togruteID, dato) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE SeteBillett (
+	billettID INTEGER NOT NULL,
+	vognID INTEGER NOT NULL,
+	seteNr INTEGER NOT NULL,
+	PRIMARY KEY(billettID),
+    FOREIGN KEY(billettID) REFERENCES Billett(billettID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID, seteNr) REFERENCES Sete(vognID, seteNr) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE SengeBillett (
+	billettID INTEGER NOT NULL,
+	togruteID INTEGER NOT NULL,
+    dato DATE NOT NULL,
+	PRIMARY KEY(billettID),
+	FOREIGN KEY(billettID) REFERENCES Billett(billettID) ON UPDATE CASCADE ON DELETE CASCADE,
+	FOREIGN KEY(togruteID,dato) REFERENCES RuteForekomst(togruteID, dato) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE Delstrekning (
+    endepunkt1Navn TEXT NOT NULL, 
+    endepunkt2Navn TEXT NOT NULL, 
+    lengde NUMBER NOT NULL CHECK(lengde &gt; 0),
+    dobbeltspor BINARY NOT NULL, /* enten dobbelt- eller enkeltspor */
+    banestrekningID INTEGER NOT NULL,
+    plassering INTEGER NOT NULL CHECK (plassering &gt;= 0),
+    retning BINARY NOT NULL, /* enten fra Stasjon1 til Stasjon2 eller motsatt */
+    PRIMARY KEY(endepunkt1Navn, endepunkt2Navn),
+    FOREIGN KEY(banestrekningID) REFERENCES Banestrekning(banestrekningID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(endepunkt1Navn) REFERENCES Stasjon(navn) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(endepunkt2Navn) REFERENCES Stasjon(navn) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE TogruteTabell (
+    tabellID INTEGER NOT NULL,
+    togruteID INTEGER NOT NULL,
+    PRIMARY KEY(tabellID),
+    FOREIGN KEY(togruteID) REFERENCES Togrute(togruteID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+/* Relation Classes */
+CREATE TABLE KupeReserveres (
+    togruteID INTEGER NOT NULL,
+    dato DATE NOT NULL,
+    vognID INTEGER NOT NULL,
+    kupeNr INTEGER NOT NULL,
+    PRIMARY KEY(togruteID, dato, vognID, kupeNr),
+    FOREIGN KEY(togruteID, dato) REFERENCES RuteForekomst(togruteID, dato) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID, kupeNr) REFERENCES Sovekupe(vognID, kupeNr) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE RuteOppsett (
+    togruteID INTEGER NOT NULL,
+    operatorNavn TEXT NOT NULL,
+    vognoppsettID INTEGER NOT NULL,
+    PRIMARY KEY(togruteID),
+    FOREIGN KEY(togruteID) REFERENCES Togrute(togruteID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(operatorNavn) REFERENCES Operator(navn) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognoppsettID) REFERENCES Vognoppsett(vognoppsettID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- Splittet SattSammenAv i to relasjonstabeller, da det ikke finnes noen Vogn-superklasse i Databasen (abstrahert bort i mapping): 
+CREATE TABLE SattSammenAvSittevogn (
+    vognoppsettID INTEGER NOT NULL,
+    vognID INTEGER NOT NULL,
+    plassering INTEGER NOT NULL,
+    PRIMARY KEY(vognoppsettID, vognID),
+    FOREIGN KEY(vognoppsettID) REFERENCES Vognoppsett(vognoppsettID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID) REFERENCES Sittevogn(vognID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE TABLE SattSammenAvSovevogn (
+    vognoppsettID INTEGER NOT NULL,
+    vognID INTEGER NOT NULL,
+    plassering INTEGER NOT NULL,
+    PRIMARY KEY(vognoppsettID, vognID),
+    FOREIGN KEY(vognoppsettID) REFERENCES Vognoppsett(vognoppsettID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID) REFERENCES Sovevogn(vognID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE TilknyttetSeng (
+    billettID INTEGER NOT NULL,
+    vognID INTEGER NOT NULL,
+    kupeNr INTEGER NOT NULL,
+    sengNr INTEGER NOT NULL,
+    PRIMARY KEY(billettID),
+    FOREIGN KEY(billettID) REFERENCES SengeBillett(billettID) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID, kupeNr) REFERENCES Sovekupe(vognID, kupeNr) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(vognID, sengNr) REFERENCES Soveplass(vognID, sengNr) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE TogruteGårGjennom (
+    stasjonNavn TEXT NOT NULL,
+    tabellID INTEGER NOT NULL,
+    tidspunkt TIME NOT NULL,
+    PRIMARY KEY(stasjonNavn, tabellID),
+    FOREIGN KEY(stasjonNavn) REFERENCES Stasjon(navn) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(tabellID) REFERENCES TogruteTabell(tabellID) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+/* Legger inn data for Nordlandsbanen */
+INSERT INTO Stasjon VALUES (&quot;Trondheim&quot;, 5.1);
+INSERT INTO Stasjon VALUES (&quot;Steinkjer&quot;, 3.6);
+INSERT INTO Stasjon VALUES (&quot;Mosjøen&quot;, 6.8);
+INSERT INTO Stasjon VALUES (&quot;Mo i Rana&quot;, 3.5);
+INSERT INTO Stasjon VALUES (&quot;Fauske&quot;, 34.0);
+INSERT INTO Stasjon VALUES (&quot;Bodø&quot;, 4.1);
+
+-- 'Banestrekning'
+INSERT INTO Banestrekning VALUES (1, &quot;Nordlandsbanen&quot;, 0);
+
+-- 'Delstrekning'-er
+/* Format: Delstrekning(endepunkt1Navn, endepunkt2Navn, lengde, dobbeltspor, banestrekningID, plassering, retning) */
+INSERT INTO Delstrekning VALUES (&quot;Trondheim&quot;, &quot;Steinkjer&quot;, 120, 1, 1, 1, 1);
+INSERT INTO Delstrekning VALUES (&quot;Steinkjer&quot;, &quot;Mosjøen&quot;, 280, 0, 1, 2, 1);
+INSERT INTO Delstrekning VALUES (&quot;Mosjøen&quot;, &quot;Mo i Rana&quot;, 90, 0, 1, 3, 1);
+INSERT INTO Delstrekning VALUES (&quot;Mo i Rana&quot;, &quot;Fauske&quot;, 170, 0, 1, 4, 1);
+INSERT INTO Delstrekning VALUES (&quot;Fauske&quot;, &quot;Bodø&quot;, 60, 0, 1, 5, 1);
+
+/* Legger info om togrutene på Nordlandsbanen */
+-- 'Togrute'-r
+INSERT INTO Togrute VALUES (1, 1, 1); -- Trondheim-Bodø Dag
+INSERT INTO Togrute VALUES (2, 1, 1); -- Trondheim-Bodø Natt
+INSERT INTO Togrute VALUES (3, 0, 1); -- Mo i Rana-Trondheim Morgen
+
+-- 'TogruteTabell'-er
+INSERT INTO TogruteTabell VALUES (1, 1);
+INSERT INTO TogruteTabell VALUES (2, 2);
+INSERT INTO TogruteTabell VALUES (3, 3);
+
+-- 'TogruteGårGjennom'-relasjoner
+/* TogruteTabell 1 */
+INSERT INTO TogruteGårGjennom VALUES (&quot;Trondheim&quot;, 1, &quot;07:49&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Steinkjer&quot;, 1, &quot;09:51&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Mosjøen&quot;, 1, &quot;13:20&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Mo i Rana&quot;, 1, &quot;14:31&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Fauske&quot;, 1, &quot;16:49&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Bodø&quot;, 1, &quot;17:34&quot;);
+/* TogruteTabell 2 */
+INSERT INTO TogruteGårGjennom VALUES (&quot;Trondheim&quot;, 2, &quot;23:05&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Steinkjer&quot;, 2, &quot;00:57&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Mosjøen&quot;, 2, &quot;04:41&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Mo i Rana&quot;, 2, &quot;05:55&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Fauske&quot;, 2, &quot;08:19&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Bodø&quot;, 2, &quot;09:05&quot;);
+/* TogruteTabell 3 */
+INSERT INTO TogruteGårGjennom VALUES (&quot;Mo i Rana&quot;, 3, &quot;08:11&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Mosjøen&quot;, 3, &quot;09:14&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Steinkjer&quot;, 3, &quot;12:31&quot;);
+INSERT INTO TogruteGårGjennom VALUES (&quot;Trondheim&quot;, 3, &quot;14:13&quot;);
+
+-- 'Operator'-er
+INSERT INTO Operator VALUES (&quot;SJ&quot;);
+
+-- 'SitteVogn'-er
+/* SJ-sittevogn-1 #1 (vogn #1) */
+INSERT INTO Sittevogn VALUES (1, &quot;SJ-sittevogn-1&quot;, 4, &quot;SJ&quot;);
+INSERT INTO Sete VALUES (1, 1, 1);
+INSERT INTO Sete VALUES (1, 2, 1);
+INSERT INTO Sete VALUES (1, 3, 1);
+INSERT INTO Sete VALUES (1, 4, 1);
+INSERT INTO Sete VALUES (1, 5, 2);
+INSERT INTO Sete VALUES (1, 6, 2);
+INSERT INTO Sete VALUES (1, 7, 2);
+INSERT INTO Sete VALUES (1, 8, 2);
+INSERT INTO Sete VALUES (1, 9, 3);
+INSERT INTO Sete VALUES (1, 10, 3);
+INSERT INTO Sete VALUES (1, 11, 3);
+INSERT INTO Sete VALUES (1, 12, 3);
+/* SJ-sittevogn-1 #2 (vogn #2) */
+INSERT INTO Sittevogn VALUES (2, &quot;SJ-sittevogn-1&quot;, 4, &quot;SJ&quot;);
+INSERT INTO Sete VALUES (2, 1, 1);
+INSERT INTO Sete VALUES (2, 2, 1);
+INSERT INTO Sete VALUES (2, 3, 1);
+INSERT INTO Sete VALUES (2, 4, 1);
+INSERT INTO Sete VALUES (2, 5, 2);
+INSERT INTO Sete VALUES (2, 6, 2);
+INSERT INTO Sete VALUES (2, 7, 2);
+INSERT INTO Sete VALUES (2, 8, 2);
+INSERT INTO Sete VALUES (2, 9, 3);
+INSERT INTO Sete VALUES (2, 10, 3);
+INSERT INTO Sete VALUES (2, 11, 3);
+INSERT INTO Sete VALUES (2, 12, 3);
+/* SJ-sittevogn-1 #3 (vogn #3) */
+INSERT INTO Sittevogn VALUES (3, &quot;SJ-sittevogn-1&quot;, 4, &quot;SJ&quot;);
+INSERT INTO Sete VALUES (3, 1, 1);
+INSERT INTO Sete VALUES (3, 2, 1);
+INSERT INTO Sete VALUES (3, 3, 1);
+INSERT INTO Sete VALUES (3, 4, 1);
+INSERT INTO Sete VALUES (3, 5, 2);
+INSERT INTO Sete VALUES (3, 6, 2);
+INSERT INTO Sete VALUES (3, 7, 2);
+INSERT INTO Sete VALUES (3, 8, 2);
+INSERT INTO Sete VALUES (3, 9, 3);
+INSERT INTO Sete VALUES (3, 10, 3);
+INSERT INTO Sete VALUES (3, 11, 3);
+INSERT INTO Sete VALUES (3, 12, 3);
+/* SJ-sittevogn-1 #4 (vogn #4) */
+INSERT INTO Sittevogn VALUES (4, &quot;SJ-sittevogn-1&quot;, 4, &quot;SJ&quot;);
+INSERT INTO Sete VALUES (4, 1, 1);
+INSERT INTO Sete VALUES (4, 2, 1);
+INSERT INTO Sete VALUES (4, 3, 1);
+INSERT INTO Sete VALUES (4, 4, 1);
+INSERT INTO Sete VALUES (4, 5, 2);
+INSERT INTO Sete VALUES (4, 6, 2);
+INSERT INTO Sete VALUES (4, 7, 2);
+INSERT INTO Sete VALUES (4, 8, 2);
+INSERT INTO Sete VALUES (4, 9, 3);
+INSERT INTO Sete VALUES (4, 10, 3);
+INSERT INTO Sete VALUES (4, 11, 3);
+INSERT INTO Sete VALUES (4, 12, 3);
+
+-- 'SoveVogn'-er
+/* SJ-sovevogn-1 #1 (vogn #5) */
+INSERT INTO Sovevogn VALUES (5, &quot;SJ-sovevogn-1&quot;, &quot;SJ&quot;);
+INSERT INTO Soveplass VALUES (5, 1);
+INSERT INTO Soveplass VALUES (5, 2);
+INSERT INTO Sovekupe VALUES (5, 1, 1, 2);
+INSERT INTO Soveplass VALUES (5, 3);
+INSERT INTO Soveplass VALUES (5, 4);
+INSERT INTO Sovekupe VALUES (5, 2, 3, 4);
+INSERT INTO Soveplass VALUES (5, 5);
+INSERT INTO Soveplass VALUES (5, 6);
+INSERT INTO Sovekupe VALUES (5, 3, 5, 6);
+INSERT INTO Soveplass VALUES (5, 7);
+INSERT INTO Soveplass VALUES (5, 8);
+INSERT INTO Sovekupe VALUES (5, 4, 7, 8);
+
+
+-- 'Vognoppsett'-er
+INSERT INTO Vognoppsett VALUES (1); -- For Togrute 1
+INSERT INTO Vognoppsett VALUES (2); -- For Togrute 2
+INSERT INTO Vognoppsett VALUES (3); -- For Togrute 3
+
+-- 'SattSammenAv'-relasjoner
+/* Format: SattSammenAv(vognoppsettID, vognID, plassering) */
+INSERT INTO SattSammenAvSittevogn VALUES (1, 1, 1);
+INSERT INTO SattSammenAvSittevogn VALUES (1, 2, 2);
+INSERT INTO SattSammenAvSittevogn VALUES (2, 3, 1);
+INSERT INTO SattSammenAvSovevogn VALUES (2, 5, 1);
+INSERT INTO SattSammenAvSittevogn VALUES (3, 4, 1);
+
+-- 'RuteOppsett'-relasjoner
+/* Format: RuteOppsett(togruteID, operatorNavn, vognoppsettID) */
+INSERT INTO RuteOppsett VALUES (1, &quot;SJ&quot;, 1);
+INSERT INTO RuteOppsett VALUES (2, &quot;SJ&quot;, 2);
+INSERT INTO RuteOppsett VALUES (3, &quot;SJ&quot;, 3);
+
+/* Inserting the three TogRute into the two dates 3rd and 4th of April 2023 */
+/* 3rd of April */
+INSERT INTO RuteForekomst VALUES (1, &quot;2023-04-03&quot;);
+INSERT INTO RuteForekomst VALUES (2, &quot;2023-04-03&quot;);
+INSERT INTO RuteForekomst VALUES (3, &quot;2023-04-03&quot;);
+
+-- billetter
+INSERT INTO Billett VALUES (1, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (2, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (3, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (4, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (5, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (6, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (7, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (8, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (9, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (10, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (11, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (12, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (13, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (14, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (15, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (16, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (17, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (18, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (19, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (20, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (21, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (22, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (23, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (24, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (25, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (26, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (27, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (28, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (29, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (30, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (31, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (32, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (33, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (34, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (35, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (36, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (37, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (38, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (39, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (40, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (41, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (42, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (43, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (44, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (45, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (46, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (47, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (48, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (49, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (50, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (51, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (52, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (53, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (54, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (55, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+INSERT INTO Billett VALUES (56, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-03&quot;);
+
+/* start togrute 1 */
+INSERT INTO SeteBillett VALUES (1, 1, 1); -- start vogn 1
+INSERT INTO SeteBillett VALUES (2, 1, 2);
+INSERT INTO SeteBillett VALUES (3, 1, 3);
+INSERT INTO SeteBillett VALUES (4, 1, 4);
+INSERT INTO SeteBillett VALUES (5, 1, 5);
+INSERT INTO SeteBillett VALUES (6, 1, 6);
+INSERT INTO SeteBillett VALUES (7, 1, 7);
+INSERT INTO SeteBillett VALUES (8, 1, 8);
+INSERT INTO SeteBillett VALUES (9, 1, 9);
+INSERT INTO SeteBillett VALUES (10, 1, 10);
+INSERT INTO SeteBillett VALUES (11, 1, 11);
+INSERT INTO SeteBillett VALUES (12, 1, 12); -- end vogn 1
+INSERT INTO SeteBillett VALUES (13, 2, 1); -- start vogn 2
+INSERT INTO SeteBillett VALUES (14, 2, 2);
+INSERT INTO SeteBillett VALUES (15, 2, 3);
+INSERT INTO SeteBillett VALUES (16, 2, 4);
+INSERT INTO SeteBillett VALUES (17, 2, 5);
+INSERT INTO SeteBillett VALUES (18, 2, 6);
+INSERT INTO SeteBillett VALUES (19, 2, 7);
+INSERT INTO SeteBillett VALUES (20, 2, 8);
+INSERT INTO SeteBillett VALUES (21, 2, 9);
+INSERT INTO SeteBillett VALUES (22, 2, 10);
+INSERT INTO SeteBillett VALUES (23, 2, 11);
+INSERT INTO SeteBillett VALUES (24, 2, 12); -- end vogn 2
+/* end togrute 1 */
+/* start togrute 2 */
+INSERT INTO SeteBillett VALUES (25, 3, 1); -- start vogn 3
+INSERT INTO SeteBillett VALUES (26, 3, 2);
+INSERT INTO SeteBillett VALUES (27, 3, 3);
+INSERT INTO SeteBillett VALUES (28, 3, 4);
+INSERT INTO SeteBillett VALUES (29, 3, 5);
+INSERT INTO SeteBillett VALUES (30, 3, 6);
+INSERT INTO SeteBillett VALUES (31, 3, 7);
+INSERT INTO SeteBillett VALUES (32, 3, 8);
+INSERT INTO SeteBillett VALUES (33, 3, 9);
+INSERT INTO SeteBillett VALUES (34, 3, 10);
+INSERT INTO SeteBillett VALUES (35, 3, 11);
+INSERT INTO SeteBillett VALUES (36, 3, 12); -- end vogn 3
+INSERT INTO SengeBillett VALUES (37, 2, &quot;2023-04-03&quot;); -- start vogn 5
+INSERT INTO TilknyttetSeng VALUES (37, 5, 1, 1);
+INSERT INTO SengeBillett VALUES (38, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (38, 5, 1, 2);
+INSERT INTO SengeBillett VALUES (39, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (39, 5, 2, 3);
+INSERT INTO SengeBillett VALUES (40, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (40, 5, 2, 4);
+INSERT INTO SengeBillett VALUES (41, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (41, 5, 3, 5);
+INSERT INTO SengeBillett VALUES (42, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (42, 5, 3, 6);
+INSERT INTO SengeBillett VALUES (43, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (43, 5, 4, 7);
+INSERT INTO SengeBillett VALUES (44, 2, &quot;2023-04-03&quot;);
+INSERT INTO TilknyttetSeng VALUES (44, 5, 4, 8); -- end vogn 5
+/* end togrute 2 */
+/* start togrute 3 */
+INSERT INTO SeteBillett VALUES (45, 4, 1); -- start vogn 4
+INSERT INTO SeteBillett VALUES (46, 4, 2);
+INSERT INTO SeteBillett VALUES (47, 4, 3);
+INSERT INTO SeteBillett VALUES (48, 4, 4);
+INSERT INTO SeteBillett VALUES (49, 4, 5);
+INSERT INTO SeteBillett VALUES (50, 4, 6);
+INSERT INTO SeteBillett VALUES (51, 4, 7);
+INSERT INTO SeteBillett VALUES (52, 4, 8);
+INSERT INTO SeteBillett VALUES (53, 4, 9);
+INSERT INTO SeteBillett VALUES (54, 4, 10);
+INSERT INTO SeteBillett VALUES (55, 4, 11);
+INSERT INTO SeteBillett VALUES (56, 4, 12); -- end vogn 4
+/* end togrute 3 */
+
+-- 4th of April
+INSERT INTO RuteForekomst VALUES (1, &quot;2023-04-04&quot;);
+INSERT INTO RuteForekomst VALUES (2, &quot;2023-04-04&quot;);
+INSERT INTO RuteForekomst VALUES (3, &quot;2023-04-04&quot;);
+-- billetter
+INSERT INTO Billett VALUES (57, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (58, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (59, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (60, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (61, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (62, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (63, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (64, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (65, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (66, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (67, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (68, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (69, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (70, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (71, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (72, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (73, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (74, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (75, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (76, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (77, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (78, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (79, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (80, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 1, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (81, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (82, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (83, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (84, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (85, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (86, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (87, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (88, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (89, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (90, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (91, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (92, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (93, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (94, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (95, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (96, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (97, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (98, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (99, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (100, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 2, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (101, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (102, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (103, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (104, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (105, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (106, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (107, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (108, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (109, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (110, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (111, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+INSERT INTO Billett VALUES (112, &quot;Trondheim&quot;, &quot;Bodø&quot;, NULL, 3, &quot;2023-04-04&quot;);
+
+/* start togrute 1 */
+INSERT INTO SeteBillett VALUES (57, 1, 1); -- start vogn 1
+INSERT INTO SeteBillett VALUES (58, 1, 2);
+INSERT INTO SeteBillett VALUES (59, 1, 3);
+INSERT INTO SeteBillett VALUES (60, 1, 4);
+INSERT INTO SeteBillett VALUES (61, 1, 5);
+INSERT INTO SeteBillett VALUES (62, 1, 6);
+INSERT INTO SeteBillett VALUES (63, 1, 7);
+INSERT INTO SeteBillett VALUES (64, 1, 8);
+INSERT INTO SeteBillett VALUES (65, 1, 9);
+INSERT INTO SeteBillett VALUES (66, 1, 10);
+INSERT INTO SeteBillett VALUES (67, 1, 11);
+INSERT INTO SeteBillett VALUES (68, 1, 12); -- end vogn 1
+INSERT INTO SeteBillett VALUES (69, 2, 1); -- start vogn 2
+INSERT INTO SeteBillett VALUES (70, 2, 2);
+INSERT INTO SeteBillett VALUES (71, 2, 3);
+INSERT INTO SeteBillett VALUES (72, 2, 4);
+INSERT INTO SeteBillett VALUES (73, 2, 5);
+INSERT INTO SeteBillett VALUES (74, 2, 6);
+INSERT INTO SeteBillett VALUES (75, 2, 7);
+INSERT INTO SeteBillett VALUES (76, 2, 8);
+INSERT INTO SeteBillett VALUES (77, 2, 9);
+INSERT INTO SeteBillett VALUES (78, 2, 10);
+INSERT INTO SeteBillett VALUES (79, 2, 11);
+INSERT INTO SeteBillett VALUES (80, 2, 12); -- end vogn 2
+/* end togrute 1 */
+/* start togrute 2 */
+INSERT INTO SeteBillett VALUES (81, 3, 1); -- start vogn 3
+INSERT INTO SeteBillett VALUES (82, 3, 2);
+INSERT INTO SeteBillett VALUES (83, 3, 3);
+INSERT INTO SeteBillett VALUES (84, 3, 4);
+INSERT INTO SeteBillett VALUES (85, 3, 5);
+INSERT INTO SeteBillett VALUES (86, 3, 6);
+INSERT INTO SeteBillett VALUES (87, 3, 7);
+INSERT INTO SeteBillett VALUES (88, 3, 8);
+INSERT INTO SeteBillett VALUES (89, 3, 9);
+INSERT INTO SeteBillett VALUES (90, 3, 10);
+INSERT INTO SeteBillett VALUES (91, 3, 11);
+INSERT INTO SeteBillett VALUES (92, 3, 12); -- end vogn 3
+INSERT INTO SengeBillett VALUES (93, 2, &quot;2023-04-04&quot;); -- start vogn 5
+INSERT INTO TilknyttetSeng VALUES (93, 5, 1, 1);
+INSERT INTO SengeBillett VALUES (94, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (94, 5, 1, 2);
+INSERT INTO SengeBillett VALUES (95, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (95, 5, 2, 3);
+INSERT INTO SengeBillett VALUES (96, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (96, 5, 2, 4);
+INSERT INTO SengeBillett VALUES (97, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (97, 5, 3, 5);
+INSERT INTO SengeBillett VALUES (98, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (98, 5, 3, 6);
+INSERT INTO SengeBillett VALUES (99, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (99, 5, 4, 7);
+INSERT INTO SengeBillett VALUES (100, 2, &quot;2023-04-04&quot;);
+INSERT INTO TilknyttetSeng VALUES (100, 5, 4, 8); -- end vogn 5
+/* end togrute 2 */
+/* start togrute 3 */
+INSERT INTO SeteBillett VALUES (101, 4, 1); -- start vogn 4
+INSERT INTO SeteBillett VALUES (102, 4, 2);
+INSERT INTO SeteBillett VALUES (103, 4, 3);
+INSERT INTO SeteBillett VALUES (104, 4, 4);
+INSERT INTO SeteBillett VALUES (105, 4, 5);
+INSERT INTO SeteBillett VALUES (106, 4, 6);
+INSERT INTO SeteBillett VALUES (107, 4, 7);
+INSERT INTO SeteBillett VALUES (108, 4, 8);
+INSERT INTO SeteBillett VALUES (109, 4, 9);
+INSERT INTO SeteBillett VALUES (110, 4, 10);
+INSERT INTO SeteBillett VALUES (111, 4, 11);
+INSERT INTO SeteBillett VALUES (112, 4, 12); -- end vogn 4
+/* end togrute 4 */</sql><current_tab id="0"/></tab_sql></sqlb_project>
